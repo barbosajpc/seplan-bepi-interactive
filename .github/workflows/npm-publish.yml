@@ -25,7 +25,7 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      - run: npm install
       - run: npm test --if-present
 
       # Vite no GitHub Pages precisa de base "/<repo>/"
