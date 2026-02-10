@@ -19,56 +19,40 @@ serve(async (req) => {
     const { action, grupo, detalhado, anoMin, anoMax } = await req.json();
 
     if (action === "get_structure") {
-      // Get groups and their subtopics
-      const { data, error } = await supabase
-        .from("balanco_epi_cons")
-        .select('"Grupo", "Detalhado"')
-        .schema("sumer");
-
-      if (error) {
-        // Fallback: raw SQL
-        const { data: sqlData, error: sqlError } = await supabase.rpc("exec_sql", {
-          query: `SELECT DISTINCT "Grupo", "Detalhado" FROM sumer.balanco_epi_cons ORDER BY "Grupo", "Detalhado"`,
-        });
-
-        if (sqlError) throw sqlError;
-        return new Response(JSON.stringify(sqlData), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
-      // Deduplicate
-      const seen = new Set<string>();
-      const unique = (data || []).filter((r: any) => {
-        const key = `${r.Grupo}|${r.Detalhado}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      return new Response(JSON.stringify(unique), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    if (action === "get_data") {
-      // Build query for chart data
-      let query = `
-        SELECT "Ano", "Agregação", "Origem da Energia", "Tipo de fonte", "Valor da Energia"
-        FROM sumer.balanco_epi_cons
-        WHERE "Grupo" = '${grupo.replace(/'/g, "''")}'
-          AND "Detalhado" = '${detalhado.replace(/'/g, "''")}'
-      `;
-
-      if (anoMin && anoMax) {
-        query += ` AND "Ano" >= ${parseInt(anoMin)} AND "Ano" <= ${parseInt(anoMax)}`;
-      }
-
-      query += ` AND "Valor da Energia" IS NOT NULL AND "Valor da Energia" != 0 ORDER BY "Ano"`;
-
       const { data, error } = await supabase.rpc("exec_sql", {
-        query,
+        query: `SELECT DISTINCT "Grupo", "Detalhado" FROM sumer.balanco_epi_cons ORDER BY "Grupo", "Detalhado"`,
       });
 
       if (error) throw error;
+      return new Response(JSON.stringify(data || []), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      return new Response(JSON.stringify(data || []), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (action === "get_data") {
+      const safeGrupo = grupo.replace(/'/g, "''");
+      const safeDetalhado = detalhado.replace(/'/g, "''");
+      const minY = parseInt(anoMin) || 1947;
+      const maxY = parseInt(anoMax) || 2024;
+
+      const query = `
+        SELECT "Ano", "Agregação", "Origem da Energia", "Tipo de fonte", "Valor da Energia"
+        FROM sumer.balanco_epi_cons
+        WHERE "Grupo" = '${safeGrupo}'
+          AND "Detalhado" = '${safeDetalhado}'
+          AND "Ano" >= ${minY}
+          AND "Ano" <= ${maxY}
+          AND "Valor da Energia" IS NOT NULL
+          AND "Valor da Energia" != 0
+        ORDER BY "Ano"
+      `;
+
+      const { data, error } = await supabase.rpc("exec_sql", { query });
+      if (error) throw error;
+
+      return new Response(JSON.stringify(data || []), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
