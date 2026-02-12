@@ -13,13 +13,35 @@ export interface BepiDataPoint {
   "Valor da Energia": number;
 }
 
+type OkResponse<T> = { ok: true; data: T };
+type ErrResponse = { ok: false; error: string };
+
+function unwrap<T>(payload: any): T {
+  // suporta tanto retorno novo {ok,data} quanto antigo (direto)
+  if (payload?.ok === false) throw new Error(payload.error || "Erro na function");
+  if (payload?.ok === true) return payload.data as T;
+  return payload as T;
+}
+
 export async function fetchStructure(): Promise<BepiStructure[]> {
   const { data, error } = await supabase.functions.invoke("bepi-data", {
     body: { action: "get_structure" },
   });
 
   if (error) throw error;
-  return data as BepiStructure[];
+  return unwrap<BepiStructure[]>(data);
+}
+
+export async function fetchYearRange(
+  grupo: string,
+  detalhado: string
+): Promise<{ minAno: number | null; maxAno: number | null }> {
+  const { data, error } = await supabase.functions.invoke("bepi-data", {
+    body: { action: "get_year_range", grupo, detalhado },
+  });
+
+  if (error) throw error;
+  return unwrap<{ minAno: number | null; maxAno: number | null }>(data);
 }
 
 export async function fetchChartData(
@@ -33,7 +55,7 @@ export async function fetchChartData(
   });
 
   if (error) throw error;
-  return data as BepiDataPoint[];
+  return unwrap<BepiDataPoint[]>(data);
 }
 
 export interface GroupedStructure {

@@ -4,13 +4,20 @@ import { BepiHeader } from "@/components/BepiHeader";
 import { BepiSidebar } from "@/components/BepiSidebar";
 import { BepiChart } from "@/components/BepiChart";
 import { YearSlider } from "@/components/YearSlider";
-import { fetchStructure, fetchChartData, groupStructure } from "@/lib/bepi-api";
+import { fetchStructure, fetchChartData, groupStructure, fetchYearRange } from "@/lib/bepi-api";
+import { normalizeRange } from "@/lib/yearRange";
 import { Loader2 } from "lucide-react";
 
 const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedGrupo, setSelectedGrupo] = useState<string | null>(null);
   const [selectedDetalhado, setSelectedDetalhado] = useState<string | null>(null);
+
+  const [yearBounds, setYearBounds] = useState<{ min: number; max: number }>({
+    min: 1947,
+    max: 2024,
+  });
+
   const [yearRange, setYearRange] = useState<[number, number]>([1970, 2024]);
 
   const { data: rawStructure, isLoading: structureLoading } = useQuery({
@@ -35,6 +42,40 @@ const Index = () => {
     }
   }, [structure, selectedGrupo]);
 
+  // ✅ Atualiza limites do slider quando muda o item selecionado
+  console.log("Effect disparou", selectedGrupo, selectedDetalhado);
+  useEffect(() => {
+    if (!selectedGrupo || !selectedDetalhado) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const { minAno, maxAno } = await fetchYearRange(selectedGrupo, selectedDetalhado);
+
+      if (cancelled) return;
+
+      // 🚨 sem dados
+      if (minAno == null || maxAno == null) {
+        console.warn("Sem dados para seleção");
+
+        // opção A (recomendada): desabilitar slider
+        setYearBounds({ min: 0, max: 0 });
+        setYearRange([0, 0]);
+
+        return;
+      }
+
+      setYearBounds({ min: minAno, max: maxAno });
+      setYearRange([minAno, maxAno]);
+    })().catch(console.error);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGrupo, selectedDetalhado]);
+
+
+
   const { data: chartData, isLoading: chartLoading } = useQuery({
     queryKey: ["bepi-chart", selectedGrupo, selectedDetalhado, yearRange[0], yearRange[1]],
     queryFn: () => fetchChartData(selectedGrupo!, selectedDetalhado!, yearRange[0], yearRange[1]),
@@ -44,6 +85,9 @@ const Index = () => {
   const handleSelect = (grupo: string, detalhado: string) => {
     setSelectedGrupo(grupo);
     setSelectedDetalhado(detalhado);
+
+    // opcional: mostra loading/reset temporário enquanto busca o range real
+    setYearRange([yearBounds.min, yearBounds.max]);
   };
 
   const chartTitle = selectedDetalhado
@@ -75,7 +119,17 @@ const Index = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground font-heading">Período:</span>
-                  <YearSlider min={1947} max={2024} value={yearRange} onChange={setYearRange} />
+
+                  <YearSlider
+                    min={yearBounds.min}
+                    max={yearBounds.max}
+                    value={yearRange}
+                    onChange={(v) =>
+                      setYearRange(
+                        normalizeRange(v[0], v[1], yearBounds.min, yearBounds.max)
+                      )
+                    }
+                  />
                 </div>
               </div>
 
