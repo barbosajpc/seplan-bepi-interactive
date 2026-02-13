@@ -95,7 +95,7 @@ export function BepiChart({ data, title }: BepiChartProps) {
               tickLine={false}
               axisLine={{ stroke: "hsl(var(--border))" }}
               label={{
-                value: "Energia (tep)",
+                value: "Energia (10³ tep)",
                 angle: -90,
                 position: "insideLeft",
                 offset: -5,

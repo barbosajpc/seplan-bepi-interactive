@@ -29,18 +29,27 @@ function normalizeRange(
 }
 
 export function YearSlider({ min, max, value, onChange }: YearSliderProps) {
-  const [startText, setStartText] = useState(String(value[0]));
-  const [endText, setEndText] = useState(String(value[1]));
+  const disabled = min === 0 && max === 0;
 
+  // Inputs como texto → permite apagar/digitar sem travar
+  const [startText, setStartText] = useState(disabled ? "" : String(value[0]));
+  const [endText, setEndText] = useState(disabled ? "" : String(value[1]));
 
   useEffect(() => {
+    // Se não há dados, limpa inputs (evita 0—0)
+    if (disabled) {
+      setStartText("");
+      setEndText("");
+      return;
+    }
     setStartText(String(value[0]));
     setEndText(String(value[1]));
-  }, [value]);
+  }, [value, disabled]);
 
   function commitStart() {
-    const parsed = Number(startText);
+    if (disabled) return;
 
+    const parsed = Number(startText);
     if (!Number.isFinite(parsed)) {
       setStartText(String(value[0]));
       return;
@@ -51,8 +60,9 @@ export function YearSlider({ min, max, value, onChange }: YearSliderProps) {
   }
 
   function commitEnd() {
-    const parsed = Number(endText);
+    if (disabled) return;
 
+    const parsed = Number(endText);
     if (!Number.isFinite(parsed)) {
       setEndText(String(value[1]));
       return;
@@ -63,28 +73,32 @@ export function YearSlider({ min, max, value, onChange }: YearSliderProps) {
   }
 
   return (
-    <div className="flex items-center gap-4 min-w-[320px]">
+    <div className={`flex items-center gap-4 min-w-[320px] ${disabled ? "opacity-60" : ""}`}>
       {/* INÍCIO */}
       <input
         type="number"
-        value={startText}
-        min={min}
-        max={max - 1}
+        value={disabled ? "" : startText}
+        placeholder="—"
+        disabled={disabled}
+        min={disabled ? undefined : min}
+        max={disabled ? undefined : max - 1}
         onChange={(e) => setStartText(e.target.value)}
         onBlur={commitStart}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
-        className="w-20 text-sm font-semibold text-primary font-heading bg-secondary px-2 py-0.5 rounded outline-none"
+        className="w-20 text-sm font-semibold text-primary font-heading bg-secondary px-2 py-0.5 rounded outline-none disabled:cursor-not-allowed"
       />
 
       {/* SLIDER (com animação suave via CSS) */}
       <Slider
-        min={min}
-        max={max}
+        min={disabled ? 0 : min}
+        max={disabled ? 0 : max}
         step={1}
-        value={value}
+        value={disabled ? [0, 0] : value}
+        disabled={disabled}
         onValueChange={(v) => {
+          if (disabled) return;
           const [s, e] = normalizeRange(
             (v as [number, number])[0],
             (v as [number, number])[1],
@@ -107,15 +121,17 @@ export function YearSlider({ min, max, value, onChange }: YearSliderProps) {
       {/* FIM */}
       <input
         type="number"
-        value={endText}
-        min={min + 1}
-        max={max}
+        value={disabled ? "" : endText}
+        placeholder="—"
+        disabled={disabled}
+        min={disabled ? undefined : min + 1}
+        max={disabled ? undefined : max}
         onChange={(e) => setEndText(e.target.value)}
         onBlur={commitEnd}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
-        className="w-20 text-sm font-semibold text-primary font-heading bg-secondary px-2 py-0.5 rounded outline-none"
+        className="w-20 text-sm font-semibold text-primary font-heading bg-secondary px-2 py-0.5 rounded outline-none disabled:cursor-not-allowed"
       />
     </div>
   );
