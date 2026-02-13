@@ -42,10 +42,29 @@ const COLORS = [
 
 interface BepiChartProps {
   data: BepiDataPoint[];
-  title: string;
+
+  // Título do grupo (ex.: "Perdas")
+  groupTitle: string;
+  // Número do grupo (ex.: "6")
+  groupNumber?: string | number | null;
+
+  // Subtítulo do item (ex.: "PERDAS DISTRIB. ARMAZENAGEM")
+  subtitle: string;
+  // Número do item (ex.: "6.1")
+  subtitleNumber?: string | number | null;
+
+  // (Opcional) label do eixo Y
+  yAxisLabel?: string;
 }
 
-export function BepiChart({ data, title }: BepiChartProps) {
+export function BepiChart({
+  data,
+  groupTitle,
+  groupNumber,
+  subtitle,
+  subtitleNumber,
+  yAxisLabel = "Energia (10³ tep)",
+}: BepiChartProps) {
   const { chartData, seriesKeys } = useMemo(() => {
     // Group by Ano and Origem da Energia
     const byYear = new Map<number, Record<string, number>>();
@@ -76,33 +95,79 @@ export function BepiChart({ data, title }: BepiChartProps) {
     );
   }
 
+  const groupPrefix =
+    groupNumber !== undefined &&
+    groupNumber !== null &&
+    String(groupNumber).trim() !== ""
+      ? `${groupNumber}. `
+      : "";
+
+  const subtitlePrefix =
+    subtitleNumber !== undefined &&
+    subtitleNumber !== null &&
+    String(subtitleNumber).trim() !== ""
+      ? `${subtitleNumber} `
+      : "";
+
   return (
-    <div className="w-full">
-      <h2 className="text-xl font-heading font-semibold text-foreground mb-1">{title}</h2>
+    <div className="w-full -mt-10">
+      {/* TÍTULO DO GRUPO (maior) */}
+      <h1 className="text-3xl md:text-4xl font-heading font-semibold text-foreground mb-10">
+        {groupPrefix}
+        {groupTitle}
+      </h1>
+
+      {/* SUBTÍTULO CENTRALIZADO (menor) */}
+      <h2 className="text-lg md:text-xl font-heading font-semibold text-foreground text-center mb-2">
+        {subtitlePrefix}
+        {subtitle}
+      </h2>
+
       <div className="h-[500px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 10, right: 30, left: 20, bottom: 10 }}>
+          <LineChart
+            data={chartData}
+            margin={{ top: 10, right: 30, left: 20, bottom: 10 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis
               dataKey="Ano"
               tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
               tickLine={false}
               axisLine={{ stroke: "hsl(var(--border))" }}
-              label={{ value: "Ano", position: "insideBottom", offset: -5, style: { fontSize: 12, fill: "hsl(var(--muted-foreground))" } }}
+              label={{
+                value: "Ano",
+                position: "insideBottom",
+                offset: -5,
+                style: {
+                  fontSize: 12,
+                  fill: "hsl(var(--muted-foreground))",
+                },
+              }}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
               tickLine={false}
               axisLine={{ stroke: "hsl(var(--border))" }}
               label={{
-                value: "Energia (10³ tep)",
+                value: yAxisLabel,
                 angle: -90,
                 position: "insideLeft",
                 offset: -5,
-                style: { fontSize: 12, fill: "hsl(var(--muted-foreground))", textAnchor: "middle" },
+                style: {
+                  fontSize: 12,
+                  fill: "hsl(var(--muted-foreground))",
+                  textAnchor: "middle",
+                },
               }}
             />
             <Tooltip
+              formatter={(value: number) =>
+                value.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })
+              }
               contentStyle={{
                 backgroundColor: "hsl(var(--card))",
                 border: "1px solid hsl(var(--border))",
